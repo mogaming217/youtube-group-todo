@@ -41,7 +41,11 @@ describe('/users', () => {
     it('正しいデータであれば作成できる', async () => {
       const userID = randomID()
       const db = clientDB({ uid: userID })
-      await firebase.assertSucceeds(db.collection('users').doc(userID).set({ createdAt: serverTimestamp(), updatedAt: serverTimestamp() }))
+      await firebase.assertSucceeds(db.collection('users').doc(userID).set({
+        count: firebase.firestore.FieldValue.increment(1),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }))
     })
 
     it('OK：名前20文字', async () => {
@@ -60,94 +64,94 @@ describe('/users', () => {
   })
 })
 
-describe('/users/todos', () => {
-  const userID = randomID()
-  const db = clientDB({ uid: userID })
+// describe('/users/todos', () => {
+//   const userID = randomID()
+//   const db = clientDB({ uid: userID })
 
-  describe('create', () => {
-    it('作成できる', async () => {
-      await firebase.assertSucceeds(
-        db.collection('users').doc(userID).collection('todos').doc().set({
-          title: '卵を買う',
-          isCompleted: false,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        })
-      )
-    })
+//   describe('create', () => {
+//     it('作成できる', async () => {
+//       await firebase.assertSucceeds(
+//         db.collection('users').doc(userID).collection('todos').doc().set({
+//           title: '卵を買う',
+//           isCompleted: false,
+//           createdAt: serverTimestamp(),
+//           updatedAt: serverTimestamp()
+//         })
+//       )
+//     })
 
-    it('作成できる2', async () => {
-      await firebase.assertSucceeds(
-        db.collection('users').doc(userID).collection('todos').doc().set({
-          title: '卵を買う',
-          isCompleted: false,
-          completedAt: null,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        })
-      )
-    })
+//     it('作成できる2', async () => {
+//       await firebase.assertSucceeds(
+//         db.collection('users').doc(userID).collection('todos').doc().set({
+//           title: '卵を買う',
+//           isCompleted: false,
+//           completedAt: null,
+//           createdAt: serverTimestamp(),
+//           updatedAt: serverTimestamp()
+//         })
+//       )
+//     })
 
-    it('作成できない', async () => {
-      await firebase.assertFails(
-        db.collection('users').doc(userID).collection('todos').doc().set({
-          isCompleted: false,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        })
-      )
+//     it('作成できない', async () => {
+//       await firebase.assertFails(
+//         db.collection('users').doc(userID).collection('todos').doc().set({
+//           isCompleted: false,
+//           createdAt: serverTimestamp(),
+//           updatedAt: serverTimestamp()
+//         })
+//       )
 
-      await firebase.assertFails(
-        db.collection('users').doc(userID).collection('todos').doc().set({
-          title: 'hey',
-          isCompleted: true,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        })
-      )
-    })
-  })
+//       await firebase.assertFails(
+//         db.collection('users').doc(userID).collection('todos').doc().set({
+//           title: 'hey',
+//           isCompleted: true,
+//           createdAt: serverTimestamp(),
+//           updatedAt: serverTimestamp()
+//         })
+//       )
+//     })
+//   })
 
-  describe('update', () => {
-    const todoID = randomID()
+//   describe('update', () => {
+//     const todoID = randomID()
 
-    beforeEach(async () => {
-      // 事前にデータを作っておく
-      await adminDB.collection('users').doc(userID).collection('todos').doc(todoID).set({
-        title: '卵を買う',
-        isCompleted: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      })
-    })
+//     beforeEach(async () => {
+//       // 事前にデータを作っておく
+//       await adminDB.collection('users').doc(userID).collection('todos').doc(todoID).set({
+//         title: '卵を買う',
+//         isCompleted: false,
+//         createdAt: serverTimestamp(),
+//         updatedAt: serverTimestamp()
+//       })
+//     })
 
-    it('completedにできる', async () => {
-      await firebase.assertSucceeds(
-        db.collection('users').doc(userID).collection('todos').doc(todoID).update({
-          isCompleted: true,
-          completedAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        })
-      )
-    })
+//     it('completedにできる', async () => {
+//       await firebase.assertSucceeds(
+//         db.collection('users').doc(userID).collection('todos').doc(todoID).update({
+//           isCompleted: true,
+//           completedAt: serverTimestamp(),
+//           updatedAt: serverTimestamp()
+//         })
+//       )
+//     })
 
-    it('titleだけ変更できる', async () => {
-      await firebase.assertSucceeds(
-        db.collection('users').doc(userID).collection('todos').doc(todoID).update({
-          title: 'にんにく買う',
-          updatedAt: serverTimestamp()
-        })
-      )
-    })
+//     it('titleだけ変更できる', async () => {
+//       await firebase.assertSucceeds(
+//         db.collection('users').doc(userID).collection('todos').doc(todoID).update({
+//           title: 'にんにく買う',
+//           updatedAt: serverTimestamp()
+//         })
+//       )
+//     })
 
-    it('completedだけ更新はできない', async () => {
-      await firebase.assertFails(
-        db.collection('users').doc(userID).collection('todos').doc(todoID).update({
-          isCompleted: true,
-          // completedAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        })
-      )
-    })
-  })
-})
+//     it('completedだけ更新はできない', async () => {
+//       await firebase.assertFails(
+//         db.collection('users').doc(userID).collection('todos').doc(todoID).update({
+//           isCompleted: true,
+//           // completedAt: serverTimestamp(),
+//           updatedAt: serverTimestamp()
+//         })
+//       )
+//     })
+//   })
+// })
