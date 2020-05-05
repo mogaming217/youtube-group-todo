@@ -1,20 +1,21 @@
 Firestoreのドキュメントをしっかり読んでください
 
 users:
-  documentID: userID
+  documentID: userID == auth.uid
+  groupCount: Int
 
-  name: String?
-  iconURL: String?
+  belongingGroups:
+    documentID: groupID
+
+groups:
+  documentID: auto
+  name: String
+  userCount: Int
   createdAt: Date
-  updatedAt: Date
 
-  todos:
-    documentID: auto
-
-    title: String
-    isCompleted: Bool
-    completedAt: Date?
+  groupUsers:
+    documentID: userID
+    id: userID
+    name: String
+    invitationCode: String?
     createdAt: Date
-    updatedAt: Date
-
-

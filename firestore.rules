@@ -21,6 +21,18 @@ service cloud.firestore {
       );
     }
 
+    function isNotUpdating(fieldName) {
+      return !(fieldName in request.resource.data) || request.resource.data[fieldName] == resource.data[fieldName]
+    }
+
+    function isUserBelongingToGroup(groupID) {
+      return exists(documentPath(['groups', groupID, 'groupUsers', request.auth.uid]));
+    }
+
+    function isValidInvitationCode(groupID, code) {
+      return get(documentPath(['groups', groupID, 'invitationCodes', code])).data.expireAt > request.time;
+    }
+
     match /users/{userID} {
       allow create: if isUserAuthenticated(userID)
         && (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 20))
@@ -28,31 +40,38 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time // serverTimestamp()
         && request.resource.data.updatedAt == request.time // serverTimestamp()
       ;
-      allow update: if isUserAuthenticated(userID) && request.resource.data.updatedAt == request.time;
+      allow update: if isUserAuthenticated(userID)
+        && isNotUpdating('groupCount')
+        && request.resource.data.updatedAt == request.time;
       allow get: if isUserAuthenticated(userID);
 
-      // match /todos/{todoID} {
+      // match /belongingGroups/{groupID} {
       //   allow create: if isUserAuthenticated(userID)
-      //     && (request.resource.data.title is string && request.resource.data.title.size() <= 100)
-      //     && (request.resource.data.isCompleted == false)
-      //     && (!('completedAt' in request.resource.data) || request.resource.data.completedAt == null)
-      //     && request.resource.data.createdAt == request.time // serverTimestamp()
-      //     && request.resource.data.updatedAt == request.time // serverTimestamp()
-      //   ;
-
-      //   allow update: if isUserAuthenticated(userID)
-      //     // title
-      //     && (request.resource.data.title is string && request.resource.data.title.size() <= 100)
-      //     // isCompleted and completedAt
-      //     && (
-      //       (resource.data.isCompleted == false && request.resource.data.isCompleted == true && request.resource.data.completedAt == request.time )
-      //       || (resource.data.isCompleted == request.resource.data.isCompleted && (!('completedAt' in request.resource.data) || resource.data.completedAt == request.resource.data.completedAt))
-      //       || (request.resource.data.isCompleted == false && request.resource.data.completedAt == null)
-      //     )
-      //     && (!('createdAt' in request.resource.data) || resource.data.createdAt == request.resource.data.createdAt)
-      //     && request.resource.data.updatedAt == request.time // serverTimestamp()
-      //   ;
+      //     && existsAfter(documentPath(['groups', groupID, 'groupUsers', userID]));
       // }
+    }
+
+    match /groups/{groupID} {
+      allow get: if isUserBelongingToGroup(groupID);
+      allow update: if isUserBelongingToGroup(groupID);
+
+      match /groupUsers/{userID} {
+        allow read: if isUserBelongingToGroup(groupID);
+        allow create: if isUserAuthenticated(userID)
+          && get(documentPath('invitationCodes', request.resource.data.invitationCode)).data.groupID == groupID
+          && get(documentPath('invitationCodes', request.resource.data.invitationCode)).data.expireAt > request.time;
+      }
+    }
+
+    match /invitationCodes/{code} {
+      allow create: if isAnyAuthenticated()
+        && request.resource.data.groupID is string
+        && isUserBelongingToGroup(request.resource.data.groupID)
+        && request.resource.data.expireAt is timestamp
+        && request.resource.data.createdAt > request.time;
+
+      allow read: if isAnyAuthenticated()
+        && timestamp.value(resource.data.createdAt.toMills() + 30 * 60 * 1000) > request.time;
     }
   }
 }
