@@ -1,5 +1,61 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isUserAuthenticated(userId) {
+      return isAnyAuthenticated() && userId == request.auth.uid;
+    }
+
+    function isAnyAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isNotUpdating(fieldName) {
+      return !(fieldName in request.resource.data) || request.resource.data[fieldName] == resource.data[fieldName]
+    }
+
+    function isUserBelongingToGroup(groupId) {
+      return exists(documentPath(['groups', groupId, 'groupUsers', request.auth.uid]))
+    }
+
+    function documentPath(paths) {
+      return path([['databases', database, 'documents'].join('/'), path.join('/')].join('/'));
+    }
+
+    match /users/{userId} {
+      allow get: if isUserAuthenticated(userId);
+      allow create: if isUserAuthenticated(userId);
+      allow update: if isUserAuthenticated(userId) 
+        && isNotUpdating('groupCount')
+        && request.resource.data.updatedAt == request.time
+      ;
+    }
+
+    match /groups/{groupId} {
+      allow get: if isUserBelongingToGroup(groupId);
+      allow update: if isUserBelongingToGroup(groupId);
+
+      match /groupUsers/{userId} {
+        allow get, list: if isUserBelongingToGroup(groupId);
+        allow create: if isUserAuthenticated(userId)
+          && request.resource.data.invitationCode is string
+          && get(documentPath(['invitationCodes', request.resource.data.invitationCode])).data.groupId == groupId
+          // && get(documentPath(['invitationCodes', request.resource.data.invitationCode])).data.expiredAt > request.time
+          && request.resource.data.createdAt == request.time
+        ;
+      }
+    }
+
+    match /invitationCodes/{code} {
+      allow get, list: if isAnyAuthenticated()
+        && timestamp.value(resource.data.createdAt.toMillis() + 30 * 60 * 1000) > request.time
+      ;
+      allow create: if isAnyAuthenticated()
+        && request.resource.data.groupId is string
+        && isUserBelongingToGroup(request.resource.data.groupId)
+        // && request.resource.data.expiredAt is timestamp // TODO: 30分以内に作成された招待コードのみ読み取れるので、有効期限は不要な気がする
+        && request.resource.data.createdAt == request.time
+      ;
+    }
   }
 }
